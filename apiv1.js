@@ -4,7 +4,7 @@ var use_http = require('http');
 var http = use_http.Server(app);
 
 
-const oauth = require("./lib/google_oauth.js/index.js");
+const oauth = require("./lib/google_oauth.js");
 
 
 app.get("/apiv1/get_login_link", function (req, res) {
