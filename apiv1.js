@@ -1,21 +1,12 @@
 
 var app = require('express')();
+var use_http = require('http');
 var https = require('https');
+//var http = use_http.Server(app);
 
 const oauth = require("./lib/google_oauth.js");
 
 const fs = require('fs');
-
-const { key, cert, CA } = JSON.parse(fs.readFileSync("httpsCertificates.json"));
-const privateKey = fs.readFileSync(key, 'utf8');
-const certificate = fs.readFileSync(cert, 'utf8');
-const ca = fs.readFileSync(CA, 'utf8');
-
-const credentials = {
-    key: privateKey,
-    cert: certificate,
-    ca: ca
-};
 
 app.use(function (req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -28,10 +19,9 @@ app.get("/apiv1/get_login_link", function (req, res) {
     res.send({
         url: url
     });
-});
+})
 
 
-https.createServer(credentials, app).listen(4200, function () {
+https.createServer({key: fs.readFileSync('server.key'), cert: fs.readFileSync('server.cert')}, app).listen(4200, function () {
     console.log('Server up on *:4200');
 });
-
