@@ -107,3 +107,5 @@ dist
 .vscode-test
 
 creds.json
+httpsCertificates.json
+.idea/
