@@ -203,7 +203,9 @@ Returns: {
 `/get_report_data`
 Verb: GET
 Description:
-Removes a fixed assignment given sufficient identifiers
+Return a given page of report data
+Data contains more user-friendly content than is stored in the backend
+Raw data is only available through report downloads
 If the thread running the business logic is not complete,
     success will be false and an error message will specify that the job is still in progress
 Params: {
@@ -240,6 +242,24 @@ Params: {
     "building": "The building of the room to display"
     "room": "The room number to display
     "prof": "Professor identifier. Mutually exclusive with building and room"
+}
+Returns: {
+    "data": [
+        {
+            "class": "Class name",
+            "item": "Item name, mutually exclusive with above",
+            "building": "The building where the item is scheduled"
+            "room": "Room number where the item is scheduled"
+            "prof": "Professor teaching the course (can be empty)"
+            "times": [
+                {
+                    "day": "Day of the course",
+                    "start": "Start time of the course",
+                    "end": "End time of the course"
+                }
+            ]
+        }
+    ]
 }
 
 `/download_report`
