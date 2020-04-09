@@ -20,7 +20,7 @@ app.use(express.urlencoded({ extended: false }));
 
 const oauth = require("./lib/google_oauth.js");
 const defaults = require("./lib/default_responses.js");
-var { validateStrings, validateKeyList, validateOAuthToken } = require("./lib/validation.js");
+var { precursorValidation, validationFuncs } = require("./lib/validation.js");
 
 var mongo = require("mongodb").MongoClient;
 
@@ -38,42 +38,83 @@ app.get("/apiv1/get_login_link", function (req, res) {
 })
 
 app.post("/apiv1/add_room", async function (req, res) {
-    var user = await validateOAuthToken(req.query.token, use_https);
-    if (user == undefined) {
-        res.send(defaults.auth_error);
+    var user = await precursorValidation(req.body, "add_room", res, use_https);
+    if (user == undefined)
         return;
-    }
-    if (!validateStrings(req.body, ["department", "building", "number", "capacity"])
-        || !validateKeyList(req.body.features)) {
+    await assignato_lib.genericAdd(user, "rooms", req.body, res);
+});
+
+app.post("/apiv1/add_professor", async function (req, res) {
+    var user = await precursorValidation(req.body, "add_professor", res, use_https);
+    if (user == undefined)
+        return;
+    await assignato_lib.genericAdd(user, "professors", req.body, res);
+});
+app.post("/apiv1/add_class", async function (req, res) {
+    var user = await precursorValidation(req.body, "add_class", res, use_https);
+    if (user == undefined)
+        return;
+    await assignato_lib.genericAdd(user, "classes", req.body, res);
+});
+app.post("/apiv1/add_item", async function (req, res) {
+    var user = await precursorValidation(req.body, "add_item", res, use_https);
+    if (user == undefined)
+        return;
+    //Secondary validation for unique structures to add_item
+    var flag = validationFuncs.numeric(req.body.range, ['start', 'end']);
+    req.body.prefs.forEach(x => {
+        flag &= validationFuncs.strings(x, ["building", "number"]);
+    });
+    if (!flag) {
         res.send(defaults.validation_error);
         return;
     }
-    var cnx = await mongo.connect(config.mongo_url);
-    var collec = await cnx.db(user.replace(".", ",")).collection("rooms");
-    var to_insert = assignato_lib.filterObj(req.body, ["department", "building", "number", "capacity", "features"]);
-    //TODO: implement editing by removing documents which share a virtual primary key in the schema
-    var result = await collec.insertOne(to_insert);
-    if (result.result.ok == 1) {
-        res.send(defaults.post_success);
+    await assignato_lib.genericAdd(user, "items", req.body, res);
+});
+app.post("/apiv1/add_constraint", async function (req, res) {
+    var user = await precursorValidation(req.body, "add_constraint", res, use_https);
+    if (user == undefined)
+        return;
+    //Secondary validation for unique structures to add_constraint
+    var flag = req.body.weight === parseFloat(req.body.weight);
+    for (const x in req.body.options) {
+        flag &= x.charAt(0) != "$" && !x.includes(".");
+        const y = req.body.options[x];
+        if(typeof y == String)
+            flag &= y.charAt(0) != "$" && !y.includes(".");
+    }
+    if (!flag) {
+        res.send(defaults.validation_error);
         return;
     }
-    res.send(defaults.post_failure);
+    var to_insert = req.body;
+    to_insert.artificial_key = assignato_lib.getHexString(16);
+    await assignato_lib.genericAdd(user, "constraints", to_insert, res);
 });
-
-app.get("/apiv1/add_professor", function (req, res) {
-    res.send(defaults.default_post);
-});
-app.get("/apiv1/add_class", function (req, res) {
-    res.send(defaults.default_post);
-});
-app.get("/apiv1/add_item", function (req, res) {
-    res.send(defaults.default_post);
-});
-app.get("/apiv1/add_constraint", function (req, res) {
-    res.send(defaults.default_post);
-});
-app.get("/apiv1/get_constraints", function (req, res) {
-    res.send(defaults.default_constraints);
+app.get("/apiv1/get_constraints", async function (req, res) {
+    var user = await validationFuncs.oAuthToken(req.query.token, use_https);
+    if (user == undefined)
+        return;
+    var cnx = await mongo.connect(config.mongo_url);
+    var collec = await cnx.db(user.replace(".", ",")).collection("constraints");
+    var query = {}
+    if (validationFuncs.numeric(req.query, ["crn"]))
+        query.apply_to = req.query.crn;
+    else if (validationFuncs.strings(req.query, ["title"]))
+        query.apply_to = req.query.title;
+    else if (validationFuncs.strings(req.query, ["name"]))
+        query.apply_to = req.query.name;
+    if (validationFuncs.strings(req.query, ["type"]))
+        query.type = req.query.type;
+    var results = await collec.find(query, {_id: 0, options: 0}).toArray();
+    results = results.map(x => {
+        x.id = x.artificial_key;
+        delete x.artificial_key;
+        return x;
+    });
+    res.send({
+        constraints: x
+    });
 });
 app.get("/apiv1/remove_constraint", function (req, res) {
     res.send(defaults.default_post);
@@ -99,8 +140,8 @@ app.get("/apiv1/get_time_grid", function (req, res) {
 
 
 https.listen(8000, function () {
-    console.log('Server up on *:8000');
+    console.log('HTTPS server up on *:8000');
 });
 http.listen(3000, function () {
-    console.log('Server up on *:3000');
+    console.log('HTTP server up on *:3000');
 });

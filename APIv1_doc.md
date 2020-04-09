@@ -72,8 +72,8 @@ Body: {
     ],
     "size": "Number of attending people (integer)",
     "range": {
-        "start": "Earliest possible time of day",
-        "end": "Lastest possible time of day"
+        "start": "Earliest possible time of day (integer, military time, e.g. 1400)",
+        "end": "Lastest possible time of day (same as above)"
     },
     "prefs": [
         {
@@ -107,7 +107,7 @@ Returns: {
 Verb: GET
 Description: Returns a list of constraints with optional search filters. Listed href args are optional.
 href args: {
-    "crn": "CRN number",
+    "crn": "CRN number (integer)",
     "title": "Course title",
     "name": "Professor name",
     "type": "Type of constraint"
