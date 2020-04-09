@@ -43,13 +43,13 @@ Body: {
     "professor_name": "Name of professor teaching the course",
     "size": "Max number of people in the course (integer)",
     "title": "Title of the course"
-    "section": "Section number (integer). 0 indicates co-occurent sections scheduled separately",
+    "section": "Section number (integer). 0 indicates co-occurent sections scheduled simultaneously",
     "duration": "Duration in minutes (integer)",
     "department": [
         "N letter prefix",
         "Used for optional room restrictions"
     ],
-    "crn": "User input artificial key. Must be 0 if section is 0 (integer)",
+    "crn": "User input artificial key (integer)",
     "requirements": [
         "valid_JSON_key",
         "List of necessary features, per /add_room"
@@ -138,11 +138,12 @@ Returns: {
 Verb: POST
 Description: Makes a fixed assignment that cannot be changed by the algorithm
 Body: {
-    "crn": "Unique CRN for assigning a class",
+    "crn": "Unique CRN for assigning a class (integer)",
     "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn",
-    "building": "Assigned building"
-    "room": "Assigned room number"
-    "start": "The start time. The class/item duration will be retrieved from the existing database object"
+    "building": "Assigned building",
+    "room": "Assigned room number",
+    "day": "Day of the assignment",
+    "start": "The start time. The class/item duration will be retrieved from the existing database object",
     "professor": "Assigned professor. Can be blank if adding an item"
 }
 Returns: {
@@ -168,10 +169,11 @@ Verb: POST
 Description: Removes a fixed assignment given sufficient identifiers
 Body: {
     "crn": "Unique CRN for assigning a class",
-    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn"
-    "name": "Professor name. Having this param is mutually exclusive with the above two params",
+    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn",
+    "building": "Assigned building",
+    "room": "Assigned room number",
     "day": "The day of the assignment"
-    "time": "The start time of the assignment"
+    "start": "The start time of the assignment (integer)"
 }
 Returns: {
     "success": true|false,
