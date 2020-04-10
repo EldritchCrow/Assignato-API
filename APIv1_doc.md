@@ -42,7 +42,7 @@ Verb: POST
 Body: {
     "professor_name": "Name of professor teaching the course",
     "size": "Max number of people in the course (integer)",
-    "title": "Title of the course"
+    "title": "Title of the course",
     "section": "Section number (integer). 0 indicates co-occurent sections scheduled simultaneously",
     "duration": "Duration in minutes (integer)",
     "department": [

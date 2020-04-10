@@ -38,28 +38,28 @@ app.get("/apiv1/get_login_link", function (req, res) {
 })
 
 app.post("/apiv1/add_room", async function (req, res) {
-    var user = await precursorValidation(req.body, "add_room", res, use_https);
+    var user = await precursorValidation(req.body, "add_room", res, use_https, req.query.token);
     if (user == undefined)
         return;
     await assignato_lib.genericAdd(user, "rooms", req.body, res);
 });
 
 app.post("/apiv1/add_professor", async function (req, res) {
-    var user = await precursorValidation(req.body, "add_professor", res, use_https);
+    var user = await precursorValidation(req.body, "add_professor", res, use_https, req.query.token);
     if (user == undefined)
         return;
     await assignato_lib.genericAdd(user, "professors", req.body, res);
 });
 
 app.post("/apiv1/add_class", async function (req, res) {
-    var user = await precursorValidation(req.body, "add_class", res, use_https);
+    var user = await precursorValidation(req.body, "add_class", res, use_https, req.query.token);
     if (user == undefined)
         return;
     await assignato_lib.genericAdd(user, "classes", req.body, res);
 });
 
 app.post("/apiv1/add_item", async function (req, res) {
-    var user = await precursorValidation(req.body, "add_item", res, use_https);
+    var user = await precursorValidation(req.body, "add_item", res, use_https, req.query.token);
     if (user == undefined)
         return;
     //Secondary validation for unique structures to add_item
@@ -75,7 +75,7 @@ app.post("/apiv1/add_item", async function (req, res) {
 });
 
 app.post("/apiv1/add_constraint", async function (req, res) {
-    var user = await precursorValidation(req.body, "add_constraint", res, use_https);
+    var user = await precursorValidation(req.body, "add_constraint", res, use_https, req.query.token);
     if (user == undefined)
         return;
     //Secondary validation for unique structures to add_constraint
@@ -110,14 +110,14 @@ app.get("/apiv1/get_constraints", async function (req, res) {
         query.apply_to = req.query.name;
     if (validationFuncs.strings(req.query, ["type"]))
         query.type = req.query.type;
-    var results = await collec.find(query, { _id: 0, options: 0 }).toArray();
+    var results = await collec.find(query).project({ _id: 0, options: 0 }).toArray();
     results = results.map(x => {
         x.id = x.artificial_key;
         delete x.artificial_key;
         return x;
     });
     res.send({
-        constraints: x
+        constraints: results
     });
 });
 
@@ -125,7 +125,7 @@ app.post("/apiv1/remove_constraint", async function (req, res) {
     var user = await validationFuncs.oAuthToken(req.query.token, use_https);
     if (user == undefined)
         return;
-    if (validationFuncs.strings(req.body, ["id"])) {
+    if (!validationFuncs.strings(req.body, ["id"])) {
         res.send(defaults.validation_error);
         return;
     }
@@ -133,7 +133,7 @@ app.post("/apiv1/remove_constraint", async function (req, res) {
     filter.artificial_key = req.body.id;
     var cnx = await mongo.connect(config.mongo_url);
     var collec = await cnx.db(user.replace(".", ",")).collection("constraints");
-    var result = await collec.deleteOne(query);
+    var result = await collec.deleteOne(filter);
     if (result.result.ok == 1) {
         res.send(defaults.post_success);
         return;
@@ -142,7 +142,7 @@ app.post("/apiv1/remove_constraint", async function (req, res) {
 });
 
 app.post("/apiv1/assign", async function (req, res) {
-    var user = await precursorValidation(req.body, "assign", res, use_https);
+    var user = await precursorValidation(req.body, "assign", res, use_https, req.query.token);
     if (user == undefined)
         return;
     if ((req.body.crn == undefined && req.body.title == undefined)
@@ -155,7 +155,7 @@ app.post("/apiv1/assign", async function (req, res) {
 });
 
 app.post("/apiv1/remove_assignment", async function (req, res) {
-    var user = await precursorValidation(req.body, "remove_assignment", res, use_https);
+    var user = await precursorValidation(req.body, "remove_assignment", res, use_https, req.query.token);
     if (user == undefined)
         return;
     if ((req.body.crn == undefined && req.body.title == undefined)
