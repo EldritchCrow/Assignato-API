@@ -1,3 +1,5 @@
 {
-    "mongo_url": "mongodb://localhost:27017/"
+    "mongo_url": "mongodb://localhost:27017/",
+    "key_path": "./ssl/key.pem",
+    "cert_path": "./ssl/cert.pem"
 }

@@ -7,9 +7,12 @@ var app = express();
 
 var use_http = require('http');
 var use_https = require('https');
+
+const config = JSON.parse(fs.readFileSync("config.json"));
+
 var ssl_creds = {
-    key: fs.readFileSync("./ssl/key.pem"),
-    cert: fs.readFileSync("./ssl/cert.pem")
+    key: fs.readFileSync(config.key_path),
+    cert: fs.readFileSync(config.cert_path)
 }
 
 var http = use_http.createServer(app);
@@ -27,8 +30,6 @@ const defaults = require("./lib/default_responses.js");
 var { precursorValidation, validationFuncs } = require("./lib/validation.js");
 
 var mongo = require("mongodb").MongoClient;
-
-const config = JSON.parse(fs.readFileSync("config.json"));
 
 var assignato_lib = require("./lib/misc_lib.js");
 
