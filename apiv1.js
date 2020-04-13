@@ -17,6 +17,10 @@ var https = use_https.createServer(ssl_creds, app);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(function (req, res, next) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+});
 
 const oauth = require("./lib/google_oauth.js");
 const defaults = require("./lib/default_responses.js");
