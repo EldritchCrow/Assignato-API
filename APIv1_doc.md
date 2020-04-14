@@ -70,17 +70,7 @@ Body: {
         "valid_JSON_key",
         "List of necessary features, per /add_room"
     ],
-    "size": "Number of attending people (integer)",
-    "range": {
-        "start": "Earliest possible time of day (integer, military time, e.g. 1400)",
-        "end": "Lastest possible time of day (same as above)"
-    },
-    "prefs": [
-        {
-            "building": "Building name",
-            "number": "Room number" 
-        }
-    ]
+    "size": "Number of attending people (integer)"
 }
 Returns: {
     "success": true|false,
@@ -143,8 +133,7 @@ Body: {
     "building": "Assigned building",
     "room": "Assigned room number",
     "day": "Day of the assignment",
-    "start": "The start time. The class/item duration will be retrieved from the existing database object",
-    "professor": "Assigned professor. Can be blank if adding an item"
+    "start": "The start time. The class/item duration will be retrieved from the existing database object"
 }
 Returns: {
     "success": true|false,

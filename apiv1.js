@@ -28,6 +28,7 @@ app.use(function (req, res, next) {
 const oauth = require("./lib/google_oauth.js");
 const defaults = require("./lib/default_responses.js");
 var { precursorValidation, validationFuncs } = require("./lib/validation.js");
+var { generateReport } = require("./lib/report_generation.js");
 
 var mongo = require("mongodb").MongoClient;
 
@@ -67,15 +68,6 @@ app.post("/apiv1/add_item", async function (req, res) {
     var user = await precursorValidation(req.body, "add_item", res, use_https, req.query.token);
     if (user == undefined)
         return;
-    //Secondary validation for unique structures to add_item
-    var flag = validationFuncs.numeric(req.body.range, ['start', 'end']);
-    req.body.prefs.forEach(x => {
-        flag &= validationFuncs.strings(x, ["building", "number"]);
-    });
-    if (!flag) {
-        res.send(defaults.validation_error);
-        return;
-    }
     await assignato_lib.genericAdd(user, "items", req.body, res);
 });
 
@@ -209,7 +201,37 @@ app.post("/apiv1/remove", async function (req, res) {
 });
 
 app.post("/apiv1/generate_reports", async function (req, res) {
-    res.send(defaults.default_report_gen);
+    var user = await precursorValidation(req.body, "generate_reports", res, use_https, req.query.token);
+    if (user == undefined)
+        return;
+    var cnx = await mongo.connect(config.mongo_url);
+    var collec = await cnx.db(user.replace(".", ",")).collection("reports");
+    var ret = []
+    await Promise.all(req.body.types.map(async x => {
+        var report = await collec.findOne({ type: x });
+        if (report == null || report.status == "Seen") {
+            var new_key = generateReport(user, x);
+            collec.findOneAndReplace({ type: x }, { status: "In progress", artificial_key: new_key, type: x }, { upsert: true });
+            ret.push({
+                id: new_key,
+                type: x
+            });
+            return true;
+        } else if (report.status == "In progress" || report.status == "Unseen") {
+            ret.push({
+                id: report.artificial_key,
+                type: x
+            });
+        }
+        if (report.status == "Unseen") {
+            collec.findOneAndUpdate({ type: x }, { $set: { status: "Seen" } });
+        }
+        return true;
+    }));
+    res.send({
+        success: true,
+        data: ret
+    });
 });
 
 app.get("/apiv1/get_report_data", async function (req, res) {
@@ -218,6 +240,14 @@ app.get("/apiv1/get_report_data", async function (req, res) {
 
 app.get("/apiv1/get_time_grid", async function (req, res) {
     res.send(defaults.default_timegrid_data);
+});
+
+app.post("/apiv1/reset", async function (req, res) {
+    var cnx = await mongo.connect(config.mongo_url);
+    await cnx.db("testuser@gmail,com").dropDatabase();
+    res.send({
+        message: "Reset DB"
+    })
 });
 
 
