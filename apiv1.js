@@ -18,6 +18,7 @@ var ssl_creds = {
 var http = use_http.createServer(app);
 var https = use_https.createServer(ssl_creds, app);
 
+app.use(express.static('static'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(function (req, res, next) {
@@ -40,6 +41,14 @@ app.get("/apiv1/get_login_link", function (req, res) {
     const url = oauth.getAuthUrl(oAuth2Client);
     res.send({
         url: url
+    });
+})
+
+app.get("/apiv1/decode_oauth", async function (req, res) {
+    const oAuth2Client = oauth.getOAuth2Client(JSON.parse(fs.readFileSync("creds.json")));
+    var token = await oAuth2Client.getToken(req.query.code);
+    res.send({
+        token: token.tokens.access_token
     });
 })
 
@@ -175,21 +184,25 @@ app.post("/apiv1/remove", async function (req, res) {
     var user = await validationFuncs.oAuthToken(req.query.token, use_https);
     if (user == undefined)
         return;
-    var idx = ["crn", "title", "name"].filter(x => Object.keys(req.body).includes(x));
+    var idx = ["crn", "title", "name", "building"].filter(x => Object.keys(req.body).includes(x));
     if (idx.length != 1
         || (idx[0] == "crn" && !validationFuncs.numeric(req.body, ["crn"]))
         || (idx[0] == "title" && !validationFuncs.strings(req.body, ["title"]))
-        || (idx[0] == "name" && !validationFuncs.strings(req.body, ["name"]))) {
+        || (idx[0] == "name" && !validationFuncs.strings(req.body, ["name"]))
+        || (idx[0] == "building" && (!validationFuncs.strings(req.body, ["building"]) || !validationFuncs.strings(req.body, ["number"])))) {
         res.send(defaults.validation_error);
         return;
     }
     var collec_name = {
         crn: "classes",
         title: "items",
-        name: "professors"
+        name: "professors",
+        building: "rooms"
     }[idx[0]];
     var filter = {};
     filter[idx[0]] = req.body[idx[0]];
+    if (idx[0] == "building")
+        filter.number = req.body.number;
     var cnx = await mongo.connect(config.mongo_url);
     var collec = await cnx.db(user.replace(".", ",")).collection(collec_name);
     var result = await collec.deleteOne(filter);
@@ -235,19 +248,59 @@ app.post("/apiv1/generate_reports", async function (req, res) {
 });
 
 app.get("/apiv1/get_report_data", async function (req, res) {
-    res.send(defaults.default_report_data);
+    req.query.page = parseInt(req.query.page);
+    req.query.per_page = parseInt(req.query.per_page);
+    var user = await precursorValidation(req.query, "get_report_data", res, use_https, req.query.token);
+    if (user == undefined)
+        return;
+    docs = await assignato_lib.getReportData(user, req.query.id, res);
+    if (docs == undefined)
+        return;
+    docs = docs.splice((req.query.page - 1) * req.query.per_page, req.query.per_page);
+    res.send({
+        success: true,
+        data: docs
+    });
 });
 
 app.get("/apiv1/get_time_grid", async function (req, res) {
-    res.send(defaults.default_timegrid_data);
+    var user = await precursorValidation(req.query, "get_time_grid", res, use_https, req.query.token);
+    if (user == undefined)
+        return;
+    if ((req.query.building != undefined && !validationFuncs.strings(req.query, ["building", "number"]))
+        || req.query.prof != undefined && !validationFuncs.strings(req.query, ["prof"])) {
+        res.send(defaults.validation_error);
+        return;
+    }
+    docs = await assignato_lib.getReportData(user, req.query.id, res);
+    if (docs == undefined)
+        return;
+    var filter_key = {
+        building: req.query.building,
+        room: req.query.number
+    }
+    if (req.query.prof != undefined)
+        filter_key = { prof: req.query.prof }
+    docs = docs.filter(x => {
+        for (i in filter_key) {
+            if (x[i] != filter_key[i])
+                return false;
+        }
+        return true;
+    });
+    res.send({
+        success: true,
+        data: docs
+    });
 });
 
 app.post("/apiv1/reset", async function (req, res) {
     var cnx = await mongo.connect(config.mongo_url);
     await cnx.db("testuser@gmail,com").dropDatabase();
     res.send({
+        success: true,
         message: "Reset DB"
-    })
+    });
 });
 
 

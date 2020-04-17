@@ -1,6 +1,7 @@
 
 var app = require('express')();
 var use_http = require('http');
+var use_https = require('https');
 var http = use_http.Server(app);
 
 var oauth = require("../lib/google_oauth.js");
@@ -14,10 +15,19 @@ console.log("Visit this address to authenticate the client");
 console.log(url);
 
 app.get("/main", function (req, res) {
-    if(req.query.token == undefined) {
-        oAuth2Client.getToken(req.query.code, (err, token) => {
-            res.redirect("/main?token=" + token);
-            console.log(token);
+    if (req.query.token == undefined) {
+        use_https.get("https://localhost:8000/apiv1/decode_oauth?code=" + req.query.code, {rejectUnauthorized: false}, (resp) => {
+            var data = '';
+            resp.on('data', (chunk) => {
+                data += chunk;
+            });
+            resp.on('end', () => {
+                res.redirect("/main?token=" + JSON.parse(data).token);
+            });
+
+        }).on("error", (err) => {
+            console.log("Error: " + err.message);
+            console.log(err);
         });
         return;
     }

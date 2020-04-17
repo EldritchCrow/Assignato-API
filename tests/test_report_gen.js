@@ -23,11 +23,11 @@ var prof_add = {
     name: "Test Professor"
 };
 
-var classes = [1,2,3,4,5,6,7,8,9,10,11].map(x => {
+var classes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(x => {
     return {
         professor_name: "Test Professor",
         size: 100,
-        title: "Test course",
+        title: "Test course " + x,
         section: 0,
         duration: 110,
         department: [
@@ -42,7 +42,7 @@ var classes = [1,2,3,4,5,6,7,8,9,10,11].map(x => {
     }
 });
 
-var items = [1,2,3,4,5,6,7,8].map(x => {
+var items = [1, 2, 3, 4, 5, 6, 7, 8].map(x => {
     return {
         title: "Item " + x,
         duration: 60,
@@ -77,6 +77,54 @@ var gen_report = {
     ]
 };
 
+function report_data(id, page) {
+    return {
+        id: id,
+        page: page,
+        per_page: 3
+    }
+}
+
+
+function getGETPath(route, args) {
+    var arg_info = "?token=" + token;
+    for (i in args) {
+        arg_info += "&" + i + "=" + args[i];
+    }
+    return "http://localhost:3000/apiv1/" + route + arg_info;
+}
+
+function wrapGETRequest(data, route) {
+    return new Promise(function (resolve, reject) {
+        use_http.get(getGETPath(route, data), (resp) => {
+            var data = '';
+
+            // A chunk of data has been recieved.
+            resp.on('data', (chunk) => {
+                data += chunk;
+            });
+
+            // The whole response has been received. Print out the result.
+            resp.on('end', () => {
+                console.log("Response from: " + route);
+                if (data.charAt(0) == "<")
+                    console.log(data);
+                console.log(JSON.parse(data));
+                resolve(JSON.parse(data));
+            });
+
+        }).on("error", (err) => {
+            console.log("Error: " + err.message);
+            console.log(err);
+            reject(err);
+        });
+    });
+}
+
+async function testGET(route, data) {
+    return await wrapGETRequest(data, route);
+}
+
 function getPOSTOpts(route, len) {
     return {
         hostname: "localhost",
@@ -103,10 +151,10 @@ function wrapPOSTRequest(options, data, route) {
             // The whole response has been received. Print out the result.
             resp.on('end', () => {
                 console.log("Response from: " + route);
-                if(data.charAt(0) == "<")
+                if (data.charAt(0) == "<")
                     console.log(data);
                 console.log(JSON.parse(data));
-                resolve(data);
+                resolve(JSON.parse(data));
             });
 
         }).on("error", (err) => {
@@ -122,16 +170,24 @@ function wrapPOSTRequest(options, data, route) {
 async function testPOST(route, data) {
     data = JSON.stringify(data);
     var opts = getPOSTOpts(route, data.length);
-    await wrapPOSTRequest(opts, data, route);
+    return await wrapPOSTRequest(opts, data, route);
+}
+
+async function timer(ms) {
+    return new Promise((resolve, reject) => {
+        setTimeout(function () {
+            resolve(true);
+        }, ms);
+    });
 }
 
 async function main() {
     await testPOST("reset", {});
-    await Promise.all(classes.map(async function(x) {
+    await Promise.all(classes.map(async function (x) {
         await testPOST("add_class", x);
         return 1;
     }));
-    await Promise.all(items.map(async function(x) {
+    await Promise.all(items.map(async function (x) {
         await testPOST("add_item", x);
         return 1;
     }));
@@ -140,7 +196,21 @@ async function main() {
     await testPOST("add_constraint", constr_add);
     await testPOST("assign", assign);
     await testPOST("generate_reports", gen_report);
-    await testPOST("generate_reports", gen_report);
+    var id = (await testPOST("generate_reports", gen_report)).data[0].id;
+    await timer(500);
+    await testGET("get_report_data", report_data(id, 1));
+    var a = await testGET("get_report_data", report_data(id, 2));
+    console.log("Sample time result");
+    console.log(a.data[0]);
+    await testGET("get_time_grid", {
+        id: id,
+        prof: "Test Professor"
+    });
+    await testGET("get_time_grid", {
+        id: id,
+        building: "BUILD",
+        number: "NUM"
+    });
 }
 
 main();

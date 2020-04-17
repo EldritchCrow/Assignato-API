@@ -91,6 +91,11 @@ var remove = JSON.stringify({
     crn: 123456
 });
 
+var remove2 = JSON.stringify({
+    building: "BUILD",
+    number: "NUM"
+});
+
 var assign_rem = JSON.stringify({
     crn: 123456,
     building: "a building",
@@ -182,8 +187,12 @@ async function testPOST(route) {
         remove_constraint: constr_rem,
         assign: assign,
         remove: remove,
-        remove_assignment: assign_rem
+        remove2: remove2,
+        remove_assignment: assign_rem,
+        reset: ""
     }[route];
+    if (route == "remove2")
+        route = "remove";
     var opts = getPOSTOpts(route, data.length);
     await wrapPOSTRequest(opts, data, route);
 }
@@ -196,6 +205,7 @@ async function testGET(route) {
 }
 
 async function main() {
+    await testPOST("reset");
     await testPOST("add_room");
     await testPOST("add_professor");
     await testPOST("add_class");
@@ -205,6 +215,7 @@ async function main() {
     await testPOST("remove_constraint");
     await testPOST("assign");
     await testPOST("remove");
+    await testPOST("remove2");
     await testPOST("remove_assignment");
 }
 

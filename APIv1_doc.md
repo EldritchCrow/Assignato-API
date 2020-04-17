@@ -7,6 +7,17 @@ Returns: {
 }
 Following the OAuth link will take you to a page that stores the access token in a cookie and then redirects to the main page
 
+
+`/decode_oauth`
+Verb: GET
+Params: {
+    "code": "The code provided by the OAuth validation return"
+}
+Returns: {
+    "token": "The resultant authentication token"
+}
+
+
 All following items should also have a query paramter named "token" whose value is equal to the OAuth access token.
 
 `/add_room`
@@ -145,8 +156,10 @@ Verb: POST
 Description: Removes a registerable object given an identifier
 Body: {
     "crn": "Unique CRN for assigning a class",
-    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn"
+    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn",
     "name": "Professor name. Having this param is mutually exclusive with the above two params",
+    "building": "The name of the building holding the room to remove. Mutually exclusive with the above",
+    "number": "The room number of the room to remove. Must be present if and only if building is"
 }
 Returns: {
     "success": true|false,
@@ -201,8 +214,8 @@ If the thread running the business logic is not complete,
     success will be false and an error message will specify that the job is still in progress
 Params: {
     "id": "One of the given ids",
-    "page": "Page number"
-    "per_page": "Number of items per page"
+    "page": "Page number (integer)",
+    "per_page": "Number of items per page (integer)"
 }
 Returns: {
     "success": true|false,
@@ -230,8 +243,8 @@ Verb: GET
 Description: Retrieves the information to visualize a time grid for a given professor or room
 Params: {
     "id": "The provided report id",
-    "building": "The building of the room to display"
-    "room": "The room number to display
+    "building": "The building of the room to display",
+    "room": "The room number to display",
     "prof": "Professor identifier. Mutually exclusive with building and room"
 }
 Returns: {
