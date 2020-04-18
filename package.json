@@ -8,7 +8,9 @@
     "test": "tests"
   },
   "dependencies": {
+    "cas-authentication": "0.0.8",
     "express": "^4.17.1",
+    "express-session": "^1.17.1",
     "googleapis": "^47.0.0",
     "mongodb": "^3.5.5",
     "promise": "^8.1.0"

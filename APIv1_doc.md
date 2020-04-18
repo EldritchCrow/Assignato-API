@@ -17,6 +17,17 @@ Returns: {
     "token": "The resultant authentication token"
 }
 
+`/cas_auth`
+Verb: GET
+Params: {
+    "cas_url": "User input url for the CAS authentication, minus the https:// part"
+}
+Returns: {
+    "success": true|false,
+    "message": "Error message if there is a failure",
+    "token": "The provided access token for the client to use if success is true"
+}
+
 
 All following items should also have a query paramter named "token" whose value is equal to the OAuth access token.
 

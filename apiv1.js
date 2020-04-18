@@ -18,6 +18,13 @@ var ssl_creds = {
 var http = use_http.createServer(app);
 var https = use_https.createServer(ssl_creds, app);
 
+var session = require('express-session');
+var CASAuthentication = require('cas-authentication');
+
+const crypto = require('crypto');
+
+var url = require('url');
+
 app.use(express.static('static'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -25,6 +32,11 @@ app.use(function (req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     next();
 });
+app.use(session({
+    secret: 'super secret key',
+    resave: false,
+    saveUninitialized: true
+}));
 
 const oauth = require("./lib/google_oauth.js");
 const defaults = require("./lib/default_responses.js");
@@ -51,6 +63,46 @@ app.get("/apiv1/decode_oauth", async function (req, res) {
         token: token.tokens.access_token
     });
 })
+
+app.get("/apiv1/cas_auth", async function (req, res) {
+    if (req.query.cas_url == undefined && req.session.user_input_cas_url == undefined) {
+        res.send(defaults.validation_error);
+        return;
+    } else if (req.query.cas_url == undefined) {
+        req.query.cas_url = req.session.user_input_cas_url;
+    }
+    req.session.user_input_cas_url = req.query.cas_url;
+    var cas = new CASAuthentication({
+        cas_url: 'https://' + req.query.cas_url,
+        service_url: 'https://localhost:8000'
+    });
+    // Using a custom callback to replace next() that only executes if/when the session validates
+    console.log(req.query);
+    console.log(cas.cas_path + cas._validateUri);
+    console.log(cas.service_url + url.parse(req.url).pathname);
+    console.log("-----------------------\n\n");
+    cas.bounce(req, res, async function () {
+        const user = req.query.cas_url.replace(/[\.\$]/g, ',') + req.session[cas.session_name];
+        const token = (await crypto.randomBytes(12)).toString('hex');
+        var cnx = await mongo.connect(config.mongo_url);
+        var result = await cnx.db("access_tokens").collection("cas_tokens").insertOne({
+            token: token,
+            user: user,
+            when: + new Date()
+        });
+        if (result.result.n == 1) {
+            res.send({
+                success: true,
+                token: token
+            });
+            return;
+        }
+        res.send({
+            success: false,
+            message: "Failed to add the access token to the database"
+        });
+    })
+});
 
 app.post("/apiv1/add_room", async function (req, res) {
     var user = await precursorValidation(req.body, "add_room", res, use_https, req.query.token);
@@ -103,8 +155,10 @@ app.post("/apiv1/add_constraint", async function (req, res) {
 
 app.get("/apiv1/get_constraints", async function (req, res) {
     var user = await validationFuncs.oAuthToken(req.query.token, use_https);
-    if (user == undefined)
+    if (user == undefined) {
+        res.send(defaults.auth_error);
         return;
+    }
     var cnx = await mongo.connect(config.mongo_url);
     var collec = await cnx.db(user.replace(".", ",")).collection("constraints");
     var query = {}
@@ -129,8 +183,10 @@ app.get("/apiv1/get_constraints", async function (req, res) {
 
 app.post("/apiv1/remove_constraint", async function (req, res) {
     var user = await validationFuncs.oAuthToken(req.query.token, use_https);
-    if (user == undefined)
+    if (user == undefined) {
+        res.send(defaults.auth_error);
         return;
+    }
     if (!validationFuncs.strings(req.body, ["id"])) {
         res.send(defaults.validation_error);
         return;
@@ -182,8 +238,10 @@ app.post("/apiv1/remove_assignment", async function (req, res) {
 
 app.post("/apiv1/remove", async function (req, res) {
     var user = await validationFuncs.oAuthToken(req.query.token, use_https);
-    if (user == undefined)
+    if (user == undefined) {
+        res.send(defaults.auth_error);
         return;
+    }
     var idx = ["crn", "title", "name", "building"].filter(x => Object.keys(req.body).includes(x));
     if (idx.length != 1
         || (idx[0] == "crn" && !validationFuncs.numeric(req.body, ["crn"]))
