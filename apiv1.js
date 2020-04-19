@@ -13,7 +13,7 @@ const config = JSON.parse(fs.readFileSync("config.json"));
 var ssl_creds = {
     key: fs.readFileSync(config.key_path),
     cert: fs.readFileSync(config.cert_path)
-}
+};
 
 var http = use_http.createServer(app);
 var https = use_https.createServer(ssl_creds, app);
@@ -23,8 +23,6 @@ var CASAuthentication = require('cas-authentication');
 
 const crypto = require('crypto');
 
-var url = require('url');
-
 app.use(express.static('static'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -33,7 +31,7 @@ app.use(function (req, res, next) {
     next();
 });
 app.use(session({
-    secret: 'super secret key',
+    secret: config.session_key,
     resave: false,
     saveUninitialized: true
 }));
@@ -54,7 +52,7 @@ app.get("/apiv1/get_login_link", function (req, res) {
     res.send({
         url: url
     });
-})
+});
 
 app.get("/apiv1/decode_oauth", async function (req, res) {
     const oAuth2Client = oauth.getOAuth2Client(JSON.parse(fs.readFileSync("creds.json")));
@@ -62,7 +60,7 @@ app.get("/apiv1/decode_oauth", async function (req, res) {
     res.send({
         token: token.tokens.access_token
     });
-})
+});
 
 app.get("/apiv1/cas_auth", async function (req, res) {
     if (req.query.cas_url == undefined && req.session.user_input_cas_url == undefined) {
@@ -77,10 +75,6 @@ app.get("/apiv1/cas_auth", async function (req, res) {
         service_url: 'https://localhost:8000'
     });
     // Using a custom callback to replace next() that only executes if/when the session validates
-    console.log(req.query);
-    console.log(cas.cas_path + cas._validateUri);
-    console.log(cas.service_url + url.parse(req.url).pathname);
-    console.log("-----------------------\n\n");
     cas.bounce(req, res, async function () {
         const user = req.query.cas_url.replace(/[\.\$]/g, ',') + req.session[cas.session_name];
         const token = (await crypto.randomBytes(12)).toString('hex');
@@ -101,40 +95,122 @@ app.get("/apiv1/cas_auth", async function (req, res) {
             success: false,
             message: "Failed to add the access token to the database"
         });
-    })
+    });
+});
+
+app.get("/apiv1/get_share_code", async function (req, res) {
+    var user = await validationFuncs.oAuthToken(req.query.token, use_https);
+    if (user == undefined) {
+        res.send(defaults.auth_error);
+        return;
+    }
+    var doc = await assignato_lib.getUserShareCode(user, res);
+    if (doc == undefined)
+        return;
+    res.send({
+        success: true,
+        code: doc
+    });
+});
+
+app.post("/apiv1/set_share_code", async function (req, res) {
+    var user = await precursorValidation(req.body, "set_share_code", res, use_https, req.query.token);
+    if (user == undefined)
+        return;
+    var cnx = await mongo.connect(config.mongo_url);
+    var collec = await cnx.db("share_codes").collection("codes");
+    var doc = await collec.findOne({ code: req.body.code });
+    if (doc == null) {
+        res.send({
+            success: false,
+            message: "The provided code does not match an existing entry"
+        });
+        return;
+    }
+    var result = await collec.findOneAndReplace({
+        user: user
+    }, {
+        user: user,
+        code: req.body.code
+    });
+    if (result.ok == 1) {
+        res.send(defaults.post_success);
+        return;
+    }
+    res.send(defaults.post_failure);
+});
+
+app.post("/apiv1/reset_share_code", async function (req, res) {
+    var user = await validationFuncs.oAuthToken(req.query.token, use_https);
+    if (user == undefined) {
+        res.send(defaults.auth_error);
+        return;
+    }
+    var cnx = await mongo.connect(config.mongo_url);
+    var collec = await cnx.db("share_codes").collection("codes");
+    var code = await assignato_lib.getSecureB64String(10);
+    var result = await collec.findOneAndReplace({
+        user: user
+    }, {
+        user: user,
+        code: code
+    });
+    if (result.ok != 1) {
+        res.send({
+            success: false,
+            message: "Failed to add the new share code to the database"
+        });
+        return;
+    }
+    res.send(defaults.post_success);
 });
 
 app.post("/apiv1/add_room", async function (req, res) {
     var user = await precursorValidation(req.body, "add_room", res, use_https, req.query.token);
     if (user == undefined)
         return;
-    await assignato_lib.genericAdd(user, "rooms", req.body, res);
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
+    await assignato_lib.genericAdd(code, "rooms", req.body, res);
 });
 
 app.post("/apiv1/add_professor", async function (req, res) {
     var user = await precursorValidation(req.body, "add_professor", res, use_https, req.query.token);
     if (user == undefined)
         return;
-    await assignato_lib.genericAdd(user, "professors", req.body, res);
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
+    await assignato_lib.genericAdd(code, "professors", req.body, res);
 });
 
 app.post("/apiv1/add_class", async function (req, res) {
     var user = await precursorValidation(req.body, "add_class", res, use_https, req.query.token);
     if (user == undefined)
         return;
-    await assignato_lib.genericAdd(user, "classes", req.body, res);
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
+    await assignato_lib.genericAdd(code, "classes", req.body, res);
 });
 
 app.post("/apiv1/add_item", async function (req, res) {
     var user = await precursorValidation(req.body, "add_item", res, use_https, req.query.token);
     if (user == undefined)
         return;
-    await assignato_lib.genericAdd(user, "items", req.body, res);
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
+    await assignato_lib.genericAdd(code, "items", req.body, res);
 });
 
 app.post("/apiv1/add_constraint", async function (req, res) {
     var user = await precursorValidation(req.body, "add_constraint", res, use_https, req.query.token);
     if (user == undefined)
+        return;
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
         return;
     //Secondary validation for unique structures to add_constraint
     var flag = req.body.weight === parseFloat(req.body.weight);
@@ -150,7 +226,7 @@ app.post("/apiv1/add_constraint", async function (req, res) {
     }
     var to_insert = req.body;
     to_insert.artificial_key = assignato_lib.getHexString(16);
-    await assignato_lib.genericAdd(user, "constraints", to_insert, res);
+    await assignato_lib.genericAdd(code, "constraints", to_insert, res);
 });
 
 app.get("/apiv1/get_constraints", async function (req, res) {
@@ -159,8 +235,11 @@ app.get("/apiv1/get_constraints", async function (req, res) {
         res.send(defaults.auth_error);
         return;
     }
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
     var cnx = await mongo.connect(config.mongo_url);
-    var collec = await cnx.db(user.replace(".", ",")).collection("constraints");
+    var collec = await cnx.db(code).collection("constraints");
     var query = {}
     if (validationFuncs.numeric(req.query, ["crn"]))
         query.apply_to = req.query.crn;
@@ -187,6 +266,9 @@ app.post("/apiv1/remove_constraint", async function (req, res) {
         res.send(defaults.auth_error);
         return;
     }
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
     if (!validationFuncs.strings(req.body, ["id"])) {
         res.send(defaults.validation_error);
         return;
@@ -194,7 +276,7 @@ app.post("/apiv1/remove_constraint", async function (req, res) {
     var filter = {};
     filter.artificial_key = req.body.id;
     var cnx = await mongo.connect(config.mongo_url);
-    var collec = await cnx.db(user.replace(".", ",")).collection("constraints");
+    var collec = await cnx.db(code).collection("constraints");
     var result = await collec.deleteOne(filter);
     if (result.result.ok == 1) {
         res.send(defaults.post_success);
@@ -207,18 +289,24 @@ app.post("/apiv1/assign", async function (req, res) {
     var user = await precursorValidation(req.body, "assign", res, use_https, req.query.token);
     if (user == undefined)
         return;
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
     if ((req.body.crn == undefined && req.body.title == undefined)
         || (!validationFuncs.numeric(req.body, ["crn"]) && !validationFuncs.strings(req.body, ["title"]))
         || (req.body.professor != undefined && !validationFuncs.strings(req.body, ["professor"]))) {
         res.send(defaults.validation_error);
         return;
     }
-    await assignato_lib.genericAdd(user, "assignments", req.body, res);
+    await assignato_lib.genericAdd(code, "assignments", req.body, res);
 });
 
 app.post("/apiv1/remove_assignment", async function (req, res) {
     var user = await precursorValidation(req.body, "remove_assignment", res, use_https, req.query.token);
     if (user == undefined)
+        return;
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
         return;
     if ((req.body.crn == undefined && req.body.title == undefined)
         || (!validationFuncs.numeric(req.body, ["crn"]) && !validationFuncs.strings(req.body, ["title"]))) {
@@ -227,7 +315,7 @@ app.post("/apiv1/remove_assignment", async function (req, res) {
     }
     var filter = assignato_lib.filterObj(req.body, ["crn", "title", "building", "room", "start", "professor"]);
     var cnx = await mongo.connect(config.mongo_url);
-    var collec = await cnx.db(user.replace(".", ",")).collection("assignments");
+    var collec = await cnx.db(code).collection("assignments");
     var result = await collec.deleteOne(filter);
     if (result.result.ok == 1) {
         res.send(defaults.post_success);
@@ -242,6 +330,9 @@ app.post("/apiv1/remove", async function (req, res) {
         res.send(defaults.auth_error);
         return;
     }
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
     var idx = ["crn", "title", "name", "building"].filter(x => Object.keys(req.body).includes(x));
     if (idx.length != 1
         || (idx[0] == "crn" && !validationFuncs.numeric(req.body, ["crn"]))
@@ -262,7 +353,7 @@ app.post("/apiv1/remove", async function (req, res) {
     if (idx[0] == "building")
         filter.number = req.body.number;
     var cnx = await mongo.connect(config.mongo_url);
-    var collec = await cnx.db(user.replace(".", ",")).collection(collec_name);
+    var collec = await cnx.db(code).collection(collec_name);
     var result = await collec.deleteOne(filter);
     if (result.result.ok == 1) {
         res.send(defaults.post_success);
@@ -275,8 +366,11 @@ app.post("/apiv1/generate_reports", async function (req, res) {
     var user = await precursorValidation(req.body, "generate_reports", res, use_https, req.query.token);
     if (user == undefined)
         return;
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
     var cnx = await mongo.connect(config.mongo_url);
-    var collec = await cnx.db(user.replace(".", ",")).collection("reports");
+    var collec = await cnx.db(code).collection("reports");
     var ret = []
     await Promise.all(req.body.types.map(async x => {
         var report = await collec.findOne({ type: x });
@@ -311,7 +405,10 @@ app.get("/apiv1/get_report_data", async function (req, res) {
     var user = await precursorValidation(req.query, "get_report_data", res, use_https, req.query.token);
     if (user == undefined)
         return;
-    docs = await assignato_lib.getReportData(user, req.query.id, res);
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
+    docs = await assignato_lib.getReportData(code, req.query.id, res);
     if (docs == undefined)
         return;
     docs = docs.splice((req.query.page - 1) * req.query.per_page, req.query.per_page);
@@ -325,12 +422,15 @@ app.get("/apiv1/get_time_grid", async function (req, res) {
     var user = await precursorValidation(req.query, "get_time_grid", res, use_https, req.query.token);
     if (user == undefined)
         return;
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
     if ((req.query.building != undefined && !validationFuncs.strings(req.query, ["building", "number"]))
         || req.query.prof != undefined && !validationFuncs.strings(req.query, ["prof"])) {
         res.send(defaults.validation_error);
         return;
     }
-    docs = await assignato_lib.getReportData(user, req.query.id, res);
+    docs = await assignato_lib.getReportData(code, req.query.id, res);
     if (docs == undefined)
         return;
     var filter_key = {
@@ -354,7 +454,16 @@ app.get("/apiv1/get_time_grid", async function (req, res) {
 
 app.post("/apiv1/reset", async function (req, res) {
     var cnx = await mongo.connect(config.mongo_url);
-    await cnx.db("testuser@gmail,com").dropDatabase();
+    var codes = await cnx.db("share_codes").collection("codes").find({}).toArray();
+    if(codes.length != 0) {
+        console.log(codes);
+        await Promise.all(codes.map(async x => {
+            await cnx.db(x.code).dropDatabase();
+            return 1;
+        }));
+    }
+    await cnx.db("access_tokens").dropDatabase();
+    await cnx.db("share_codes").dropDatabase();
     res.send({
         success: true,
         message: "Reset DB"

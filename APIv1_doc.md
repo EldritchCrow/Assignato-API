@@ -31,6 +31,33 @@ Returns: {
 
 All following items should also have a query paramter named "token" whose value is equal to the OAuth access token.
 
+`/get_share_code`
+Verb: GET
+Returns: {
+    "success": true|false,
+    "message": "The success/error message as applicable",
+    "code": "The user's 10 character share code or whatever the one is they set"
+}
+
+`/set_share_code`
+Verb: POST
+Body: {
+    "code": "The share code the user wishes to set"
+}
+Returns: {
+    "success": true|false,
+    "message": "The success/error message as applicable"
+}
+Note: This is a destructive operation. The user's current input items will be irretrievable except by other users with this share code.
+
+`/reset_share_code`
+Verb: POST
+Returns: {
+    "success": true|false,
+    "message": "The success/error message as applicable"
+}
+Note: This is a destructive operation. The user's current input items will be irretrievable except by other users with this share code.
+
 `/add_room`
 Verb: POST
 Body: {

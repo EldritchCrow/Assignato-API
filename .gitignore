@@ -109,3 +109,4 @@ dist
 creds.json
 ssl/*.pem
 tests/token.txt
+config.json
