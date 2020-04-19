@@ -456,7 +456,6 @@ app.post("/apiv1/reset", async function (req, res) {
     var cnx = await mongo.connect(config.mongo_url);
     var codes = await cnx.db("share_codes").collection("codes").find({}).toArray();
     if(codes.length != 0) {
-        console.log(codes);
         await Promise.all(codes.map(async x => {
             await cnx.db(x.code).dropDatabase();
             return 1;

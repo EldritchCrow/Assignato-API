@@ -183,6 +183,7 @@ async function timer(ms) {
 
 async function main() {
     await testPOST("reset", {});
+    await testPOST("add_constraint", constr_add);
     await Promise.all(classes.map(async function (x) {
         await testPOST("add_class", x);
         return 1;
@@ -193,7 +194,6 @@ async function main() {
     }));
     await testPOST("add_room", room_add);
     await testPOST("add_professor", prof_add);
-    await testPOST("add_constraint", constr_add);
     await testPOST("assign", assign);
     await testPOST("generate_reports", gen_report);
     var id = (await testPOST("generate_reports", gen_report)).data[0].id;
