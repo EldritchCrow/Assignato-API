@@ -204,6 +204,42 @@ Returns: {
     "message": "Error message if 'success' was false"
 }
 
+`/get_type`
+Verb: GET
+Description: Gets user-entered documents of a type
+href args: {
+    "type": "The type of object to retrieve. Must be 'class', 'item', 'room', or 'professor'",
+    "page": "Page number (integer)",
+    "per_page": "Number of items per page (integer)"
+}
+Returns: {
+    "success": true|false,
+    "message": "Error message if 'success' was false"
+    "data": [
+        {
+            "The database items as they appear in the schema": "value"
+        }
+    ]
+}
+
+`/edit_type`
+Verb: POST
+Description: Edits a user-entered document
+Body: {
+    "crn": "Unique CRN for assigning a class",
+    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn",
+    "name": "Professor name. Having this param is mutually exclusive with the above two params",
+    "building": "The name of the building holding the room to remove. Mutually exclusive with the above",
+    "number": "The room number of the room to remove. Must be present if and only if building is",
+    "fields": {
+        "Valid fields for the specified document": "value"
+    }
+}
+Returns: {
+    "success": true|false,
+    "message": "Error message if 'success' was false"
+}
+
 `/remove_assignment`
 Verb: POST
 Description: Removes a fixed assignment given sufficient identifiers

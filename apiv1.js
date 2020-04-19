@@ -38,7 +38,7 @@ app.use(session({
 
 const oauth = require("./lib/google_oauth.js");
 const defaults = require("./lib/default_responses.js");
-var { precursorValidation, validationFuncs } = require("./lib/validation.js");
+var { precursorValidation, validationFuncs, validation_fields } = require("./lib/validation.js");
 var { generateReport } = require("./lib/report_generation.js");
 
 var mongo = require("mongodb").MongoClient;
@@ -333,25 +333,7 @@ app.post("/apiv1/remove", async function (req, res) {
     var code = await assignato_lib.getUserShareCode(user, res);
     if (code == undefined)
         return;
-    var idx = ["crn", "title", "name", "building"].filter(x => Object.keys(req.body).includes(x));
-    if (idx.length != 1
-        || (idx[0] == "crn" && !validationFuncs.numeric(req.body, ["crn"]))
-        || (idx[0] == "title" && !validationFuncs.strings(req.body, ["title"]))
-        || (idx[0] == "name" && !validationFuncs.strings(req.body, ["name"]))
-        || (idx[0] == "building" && (!validationFuncs.strings(req.body, ["building"]) || !validationFuncs.strings(req.body, ["number"])))) {
-        res.send(defaults.validation_error);
-        return;
-    }
-    var collec_name = {
-        crn: "classes",
-        title: "items",
-        name: "professors",
-        building: "rooms"
-    }[idx[0]];
-    var filter = {};
-    filter[idx[0]] = req.body[idx[0]];
-    if (idx[0] == "building")
-        filter.number = req.body.number;
+    var { collec_name, filter } = assignato_lib.getAmbiguousCollectionAndFilter(req.body, res);
     var cnx = await mongo.connect(config.mongo_url);
     var collec = await cnx.db(code).collection(collec_name);
     var result = await collec.deleteOne(filter);
@@ -360,6 +342,90 @@ app.post("/apiv1/remove", async function (req, res) {
         return;
     }
     res.send(defaults.deletion_error);
+});
+
+app.get("/apiv1/get_type", async function (req, res) {
+    req.query.page = parseInt(req.query.page);
+    req.query.per_page = parseInt(req.query.per_page);
+    var user = await precursorValidation(req.query, "get_type", res, use_https, req.query.token);
+    if (user == undefined)
+        return;
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
+    if (!["class", "item", "room", "professor"].includes(req.query.type)) {
+        res.send(defaults.validation_error);
+        return;
+    }
+    if (req.query.type.charAt(0) == 'c')
+        req.query.type += 'e';
+    req.query.type += 's';
+    var cnx = await mongo.connect(config.mongo_url);
+    var docs = await cnx.db(code).collection(req.query.type).find({}).project({ _id: 0 }).toArray();
+    docs = docs.splice((req.query.page - 1) * req.query.per_page, req.query.per_page);
+    res.send({
+        success: true,
+        data: docs
+    });
+});
+
+app.post("/apiv1/edit_type", async function (req, res) {
+    var user = await validationFuncs.oAuthToken(req.query.token, use_https);
+    if (user == undefined) {
+        res.send(defaults.auth_error);
+        return;
+    }
+    var code = await assignato_lib.getUserShareCode(user, res);
+    if (code == undefined)
+        return;
+    var { collec_name, filter } = assignato_lib.getAmbiguousCollectionAndFilter(req.body, res);
+    if (collec_name == undefined)
+        return;
+    var endpoint_validator = {
+        classes: "add_class",
+        items: "add_item",
+        professors: "add_professor",
+        rooms: "add_room"
+    }[collec_name];
+    var set_fields = {};
+    // Complicated extra validation that holds req.body.fields to the same scrutiny as other endpoints
+    for (x in req.body.fields) {
+        var table = undefined;
+        for (y in validation_fields) {
+            if (validation_fields[y][endpoint_validator] == undefined)
+                continue;
+            if (validation_fields[y][endpoint_validator].includes(x)) {
+                table = y;
+                break;
+            }
+        }
+        if (table == undefined) {
+            res.send(defaults.validation_error);
+            return;
+        }
+        if (table == "string" && !validationFuncs.strings(req.body.fields, [x])) {
+            res.send(defaults.validation_error);
+            return;
+        } else if (table == "integer" && !validationFuncs.numeric(req.body.fields, [x])) {
+            res.send(defaults.validation_error);
+            return;
+        } else if (table == "keys" && !validationFuncs.keyList(req.body.fields, [x])) {
+            res.send(defaults.validation_error);
+            return;
+        }
+        set_fields[x] = req.body.fields[x];
+    }
+    var cnx = await mongo.connect(config.mongo_url);
+    var collec = await cnx.db(code).collection(collec_name);
+    var result = await collec.findOneAndUpdate(filter, { $set: set_fields });
+    if(result.ok != 1) {
+        res.send({
+            success: false,
+            message: "Failed to update the item in the database"
+        });
+        return;
+    }
+    res.send(defaults.post_success);
 });
 
 app.post("/apiv1/generate_reports", async function (req, res) {
@@ -455,7 +521,7 @@ app.get("/apiv1/get_time_grid", async function (req, res) {
 app.post("/apiv1/reset", async function (req, res) {
     var cnx = await mongo.connect(config.mongo_url);
     var codes = await cnx.db("share_codes").collection("codes").find({}).toArray();
-    if(codes.length != 0) {
+    if (codes.length != 0) {
         await Promise.all(codes.map(async x => {
             await cnx.db(x.code).dropDatabase();
             return 1;
