@@ -214,6 +214,7 @@ app.post("/apiv1/add_constraint", async function (req, res) {
         return;
     //Secondary validation for unique structures to add_constraint
     var flag = req.body.weight === parseFloat(req.body.weight);
+    flag &= typeof req.body.apply_to == "string" || req.body.apply_to === parseInt(req.body.apply_to);
     for (const x in req.body.options) {
         flag &= x.charAt(0) != "$" && !x.includes(".");
         const y = req.body.options[x];

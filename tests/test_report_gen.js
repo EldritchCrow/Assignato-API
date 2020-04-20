@@ -18,6 +18,30 @@ var room_add = {
     ]
 };
 
+var room_add2 = {
+    department: "DEPT2",
+    building: "BUILD2",
+    number: "NUM2",
+    capacity: 100,
+    features: [
+        "yes",
+        "no",
+        "maybe"
+    ]
+};
+
+var room_add3 = {
+    department: "DEPT2",
+    building: "BUILD2",
+    number: "NUM3",
+    capacity: 100,
+    features: [
+        "yes",
+        "no",
+        "maybe"
+    ]
+};
+
 var prof_add = {
     department: "DEPT",
     name: "Test Professor"
@@ -56,10 +80,38 @@ var items = [1, 2, 3, 4, 5, 6, 7, 8].map(x => {
 var constr_add = {
     type: "time",
     apply_to: "all",
-    weight: 0.4,
+    weight: 0.2,
     options: {
         min_time: 1200,
         max_time: 1400
+    }
+};
+
+var constr_add2 = {
+    type: "building",
+    apply_to: "all",
+    weight: 0.4,
+    options: {
+        building: "BUILD2"
+    }
+};
+
+var constr_add3 = {
+    type: "room",
+    apply_to: 2,
+    weight: 0.6,
+    options: {
+        building: "BUILD2",
+        room: "NUM3"
+    }
+};
+
+var constr_add4 = {
+    type: "department",
+    apply_to: 3,
+    weight: 0.9,
+    options: {
+
     }
 };
 
@@ -184,6 +236,9 @@ async function timer(ms) {
 async function main() {
     await testPOST("reset", {});
     await testPOST("add_constraint", constr_add);
+    await testPOST("add_constraint", constr_add2);
+    await testPOST("add_constraint", constr_add3);
+    await testPOST("add_constraint", constr_add4);
     await Promise.all(classes.map(async function (x) {
         await testPOST("add_class", x);
         return 1;
@@ -193,6 +248,8 @@ async function main() {
         return 1;
     }));
     await testPOST("add_room", room_add);
+    await testPOST("add_room", room_add2);
+    await testPOST("add_room", room_add3);
     await testPOST("add_professor", prof_add);
     await testPOST("assign", assign);
     await testPOST("generate_reports", gen_report);
