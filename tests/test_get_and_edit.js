@@ -60,7 +60,8 @@ var edit_class = {
         title: "A different test course",
         department: [
             "TEST"
-        ]
+        ],
+        requirements:[]
     }
 }
 

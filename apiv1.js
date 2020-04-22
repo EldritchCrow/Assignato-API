@@ -401,7 +401,10 @@ app.post("/apiv1/edit_type", async function (req, res) {
             }
         }
         if (table == undefined) {
-            res.send(defaults.validation_error);
+            res.send({
+                success: false,
+                message: "An unknown field was specified for updating"
+            });
             return;
         }
         if (table == "string" && !validationFuncs.strings(req.body.fields, [x])) {
