@@ -107,3 +107,6 @@ dist
 .vscode-test
 
 creds.json
+ssl/*.pem
+tests/token.txt
+config.json

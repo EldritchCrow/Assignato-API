@@ -7,7 +7,56 @@ Returns: {
 }
 Following the OAuth link will take you to a page that stores the access token in a cookie and then redirects to the main page
 
+
+`/decode_oauth`
+Verb: GET
+Params: {
+    "code": "The code provided by the OAuth validation return"
+}
+Returns: {
+    "token": "The resultant authentication token"
+}
+
+`/cas_auth`
+Verb: GET
+Params: {
+    "cas_url": "User input url for the CAS authentication, minus the https:// part"
+}
+Returns: {
+    "success": true|false,
+    "message": "Error message if there is a failure",
+    "token": "The provided access token for the client to use if success is true"
+}
+
+
 All following items should also have a query paramter named "token" whose value is equal to the OAuth access token.
+
+`/get_share_code`
+Verb: GET
+Returns: {
+    "success": true|false,
+    "message": "The success/error message as applicable",
+    "code": "The user's 10 character share code or whatever the one is they set"
+}
+
+`/set_share_code`
+Verb: POST
+Body: {
+    "code": "The share code the user wishes to set"
+}
+Returns: {
+    "success": true|false,
+    "message": "The success/error message as applicable"
+}
+Note: This is a destructive operation. The user's current input items will be irretrievable except by other users with this share code.
+
+`/reset_share_code`
+Verb: POST
+Returns: {
+    "success": true|false,
+    "message": "The success/error message as applicable"
+}
+Note: This is a destructive operation. The user's current input items will be irretrievable except by other users with this share code.
 
 `/add_room`
 Verb: POST
@@ -42,14 +91,14 @@ Verb: POST
 Body: {
     "professor_name": "Name of professor teaching the course",
     "size": "Max number of people in the course (integer)",
-    "title": "Title of the course"
-    "section": "Section number (integer). 0 indicates co-occurent sections scheduled separately",
+    "title": "Title of the course",
+    "section": "Section number (integer). 0 indicates co-occurent sections scheduled simultaneously",
     "duration": "Duration in minutes (integer)",
     "department": [
         "N letter prefix",
         "Used for optional room restrictions"
     ],
-    "crn": "User input artificial key. Must be 0 if section is 0 (integer)",
+    "crn": "User input artificial key (integer)",
     "requirements": [
         "valid_JSON_key",
         "List of necessary features, per /add_room"
@@ -70,17 +119,7 @@ Body: {
         "valid_JSON_key",
         "List of necessary features, per /add_room"
     ],
-    "size": "Number of attending people (integer)",
-    "range": {
-        "start": "Earliest possible time of day",
-        "end": "Lastest possible time of day"
-    },
-    "prefs": [
-        {
-            "building": "Building name",
-            "number": "Room number" 
-        }
-    ]
+    "size": "Number of attending people (integer)"
 }
 Returns: {
     "success": true|false,
@@ -107,7 +146,7 @@ Returns: {
 Verb: GET
 Description: Returns a list of constraints with optional search filters. Listed href args are optional.
 href args: {
-    "crn": "CRN number",
+    "crn": "CRN number (integer)",
     "title": "Course title",
     "name": "Professor name",
     "type": "Type of constraint"
@@ -138,12 +177,12 @@ Returns: {
 Verb: POST
 Description: Makes a fixed assignment that cannot be changed by the algorithm
 Body: {
-    "crn": "Unique CRN for assigning a class",
+    "crn": "Unique CRN for assigning a class (integer)",
     "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn",
-    "building": "Assigned building"
-    "room": "Assigned room number"
+    "building": "Assigned building",
+    "room": "Assigned room number",
+    "day": "Day of the assignment",
     "start": "The start time. The class/item duration will be retrieved from the existing database object"
-    "professor": "Assigned professor. Can be blank if adding an item"
 }
 Returns: {
     "success": true|false,
@@ -155,8 +194,46 @@ Verb: POST
 Description: Removes a registerable object given an identifier
 Body: {
     "crn": "Unique CRN for assigning a class",
-    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn"
+    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn",
     "name": "Professor name. Having this param is mutually exclusive with the above two params",
+    "building": "The name of the building holding the room to remove. Mutually exclusive with the above",
+    "number": "The room number of the room to remove. Must be present if and only if building is"
+}
+Returns: {
+    "success": true|false,
+    "message": "Error message if 'success' was false"
+}
+
+`/get_type`
+Verb: GET
+Description: Gets user-entered documents of a type
+href args: {
+    "type": "The type of object to retrieve. Must be 'class', 'item', 'room', or 'professor'",
+    "page": "Page number (integer)",
+    "per_page": "Number of items per page (integer)"
+}
+Returns: {
+    "success": true|false,
+    "message": "Error message if 'success' was false"
+    "data": [
+        {
+            "The database items as they appear in the schema": "value"
+        }
+    ]
+}
+
+`/edit_type`
+Verb: POST
+Description: Edits a user-entered document
+Body: {
+    "crn": "Unique CRN for assigning a class",
+    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn",
+    "name": "Professor name. Having this param is mutually exclusive with the above two params",
+    "building": "The name of the building holding the room to remove. Mutually exclusive with the above",
+    "number": "The room number of the room to remove. Must be present if and only if building is",
+    "fields": {
+        "Valid fields for the specified document": "value"
+    }
 }
 Returns: {
     "success": true|false,
@@ -168,10 +245,11 @@ Verb: POST
 Description: Removes a fixed assignment given sufficient identifiers
 Body: {
     "crn": "Unique CRN for assigning a class",
-    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn"
-    "name": "Professor name. Having this param is mutually exclusive with the above two params",
+    "title": "Unique title for assigning an item. Having this param is mutually exclusive with crn",
+    "building": "Assigned building",
+    "room": "Assigned room number",
     "day": "The day of the assignment"
-    "time": "The start time of the assignment"
+    "start": "The start time of the assignment (integer)"
 }
 Returns: {
     "success": true|false,
@@ -210,8 +288,8 @@ If the thread running the business logic is not complete,
     success will be false and an error message will specify that the job is still in progress
 Params: {
     "id": "One of the given ids",
-    "page": "Page number"
-    "per_page": "Number of items per page"
+    "page": "Page number (integer)",
+    "per_page": "Number of items per page (integer)"
 }
 Returns: {
     "success": true|false,
@@ -239,8 +317,8 @@ Verb: GET
 Description: Retrieves the information to visualize a time grid for a given professor or room
 Params: {
     "id": "The provided report id",
-    "building": "The building of the room to display"
-    "room": "The room number to display
+    "building": "The building of the room to display",
+    "room": "The room number to display",
     "prof": "Professor identifier. Mutually exclusive with building and room"
 }
 Returns: {
