@@ -84,17 +84,14 @@ app.get("/apiv1/cas_auth", async function (req, res) {
             user: user,
             when: + new Date()
         });
-        if (result.result.n == 1) {
+        if (result.result.n != 1) {
             res.send({
-                success: true,
-                token: token
+                success: false,
+                message: "Failed to add the access token to the database"
             });
             return;
         }
-        res.send({
-            success: false,
-            message: "Failed to add the access token to the database"
-        });
+        res.redirect(req.query.callback + '?token=' + token);
     });
 });
 
