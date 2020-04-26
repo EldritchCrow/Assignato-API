@@ -478,7 +478,8 @@ app.get("/apiv1/get_report_data", async function (req, res) {
     docs = await assignato_lib.getReportData(code, req.query.id, res);
     if (docs == undefined)
         return;
-    docs = docs.splice((req.query.page - 1) * req.query.per_page, req.query.per_page);
+    if (req.query.per_page > 0)
+        docs = docs.splice((req.query.page - 1) * req.query.per_page, req.query.per_page);
     res.send({
         success: true,
         data: docs
