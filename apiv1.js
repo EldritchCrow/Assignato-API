@@ -72,7 +72,7 @@ app.get("/apiv1/cas_auth", async function (req, res) {
     req.session.user_input_cas_url = req.query.cas_url;
     var cas = new CASAuthentication({
         cas_url: 'https://' + req.query.cas_url,
-        service_url: 'https://localhost:8000'
+        service_url: req.protocol + "://" + req.headers.host
     });
     // Using a custom callback to replace next() that only executes if/when the session validates
     cas.bounce(req, res, async function () {
@@ -419,7 +419,7 @@ app.post("/apiv1/edit_type", async function (req, res) {
     var cnx = await mongo.connect(config.mongo_url);
     var collec = await cnx.db(code).collection(collec_name);
     var result = await collec.findOneAndUpdate(filter, { $set: set_fields });
-    if(result.ok != 1) {
+    if (result.ok != 1) {
         res.send({
             success: false,
             message: "Failed to update the item in the database"
