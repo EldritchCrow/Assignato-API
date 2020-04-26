@@ -72,7 +72,7 @@ app.get("/apiv1/cas_auth", async function (req, res) {
     req.session.user_input_cas_url = req.query.cas_url;
     var cas = new CASAuthentication({
         cas_url: 'https://' + req.query.cas_url,
-        service_url: 'https://localhost:8000'
+        service_url: req.protocol + "://" + req.headers.host
     });
     // Using a custom callback to replace next() that only executes if/when the session validates
     cas.bounce(req, res, async function () {
@@ -84,17 +84,14 @@ app.get("/apiv1/cas_auth", async function (req, res) {
             user: user,
             when: + new Date()
         });
-        if (result.result.n == 1) {
+        if (result.result.n != 1) {
             res.send({
-                success: true,
-                token: token
+                success: false,
+                message: "Failed to add the access token to the database"
             });
             return;
         }
-        res.send({
-            success: false,
-            message: "Failed to add the access token to the database"
-        });
+        res.redirect(req.query.callback + '?token=' + token);
     });
 });
 
@@ -422,7 +419,7 @@ app.post("/apiv1/edit_type", async function (req, res) {
     var cnx = await mongo.connect(config.mongo_url);
     var collec = await cnx.db(code).collection(collec_name);
     var result = await collec.findOneAndUpdate(filter, { $set: set_fields });
-    if(result.ok != 1) {
+    if (result.ok != 1) {
         res.send({
             success: false,
             message: "Failed to update the item in the database"
@@ -481,7 +478,8 @@ app.get("/apiv1/get_report_data", async function (req, res) {
     docs = await assignato_lib.getReportData(code, req.query.id, res);
     if (docs == undefined)
         return;
-    docs = docs.splice((req.query.page - 1) * req.query.per_page, req.query.per_page);
+    if (req.query.per_page > 0)
+        docs = docs.splice((req.query.page - 1) * req.query.per_page, req.query.per_page);
     res.send({
         success: true,
         data: docs

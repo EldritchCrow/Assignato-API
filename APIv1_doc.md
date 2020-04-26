@@ -20,14 +20,14 @@ Returns: {
 `/cas_auth`
 Verb: GET
 Params: {
-    "cas_url": "User input url for the CAS authentication, minus the https:// part"
+    "cas_url": "User input url for the CAS authentication, minus the https:// part",
+    "callback": "Where the endpoint should redirect to once authenticated. A 'token' param will be in the href args"
 }
 Returns: {
-    "success": true|false,
-    "message": "Error message if there is a failure",
-    "token": "The provided access token for the client to use if success is true"
+    "success": false,
+    "message": "Error message",
 }
-
+OR REDIRECTS TO CALLBACK PAGE ON SUCCESS
 
 All following items should also have a query paramter named "token" whose value is equal to the OAuth access token.
 
